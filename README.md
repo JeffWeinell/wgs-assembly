@@ -12,8 +12,8 @@ settings.sh
 pu1a.sh
 
 ```
-NAME=$1
-SETTINGS_PATH=${2:-"/home/jweinell/mendel-nas1/prog/pseudoit_unwrapped/settings.sh"}
+NAME=
+SETTINGS_PATH=
 
 # Load environment and assembly settings
 source ${SETTINGS_PATH} ${NAME}
@@ -102,8 +102,8 @@ exit 0
 pu1b.sh
 
 ```
-NAME=$1
-SETTINGS_PATH=${2:-"/home/jweinell/mendel-nas1/prog/pseudoit_unwrapped/settings.sh"}
+NAME=
+SETTINGS_PATH=
 
 
 # exit with error if NAME argument empty
@@ -112,11 +112,7 @@ SETTINGS_PATH=${2:-"/home/jweinell/mendel-nas1/prog/pseudoit_unwrapped/settings.
 # Load environment and assembly settings
 source ${SETTINGS_PATH} ${NAME}
 
-
-#############################
-### Part B of iteration 1 ###
-#############################
-
+# check that all previous jobs completed successfully
 if grep -q "mark_duplicates_01" $LOGOFLOGS
 then
      MARKDUP_ID=$(cat $LOGOFLOGS | grep "mark_duplicates_01" | tail -n 1 | awk '{print $1}')

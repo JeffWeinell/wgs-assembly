@@ -4,10 +4,323 @@
 #### short reads, iterative reference mapping
 
 settings.sh
-```
 
 ```
+#!/bin/bash
 
+# name of current sample to assemble
+NAME=
+
+# directory where pipeline scripts are located 
+PROGDIR=~/mendel-nas1/prog/pseudoit_unwrapped/
+
+# Path to clean forward reads of sample (fastq.gz)
+READS_PE1=
+
+# Path to clean reverse reads of sample (fastq.gz)
+READS_PE2=
+
+# Path to clean unpaired reads if you have any (fastq.gz)
+READS_SE=
+
+# Species name (of sample)
+SPECIES=
+
+# path to reference genome that reads should be mapped to (fasta or fasta.gz)
+REFPATH_OG=
+
+# output directory for sample assembly (this will be created if it doesnt already exist)
+OUTDIR=~/mendel-nas1/pseudoit_output/${NAME}/
+
+######### Assembly parameters (passed to bwa, gatk, and bcftools) ###########
+
+# number of processors for gatk haplotyping big scaffolds (>100 megabases)
+MAXPROCS=20
+
+# number of processors for gatk haplotyping mid-sized scaffolds (10–100 megabases)
+MIDPROCS=8
+
+# number of processors for gatk haplotyping small scaffolds (<10 megabases)
+MINPROCS=1
+
+# Number of threads to use when mapping reads to ref genome with bwa
+BWA_THREADS=10
+
+# Minimum phred-scaled confidence threshold at which variants should be called (gatk default = 30)
+STAND_CALL_CONF=30
+
+# 
+INDELGAP=5
+
+# Minimum site coverage in scripts $BCFTOOLSFILTER_SHPATH and $BCFTOOLSFILTER_02_SHPATH
+# MINSITECOV=5  # Not yet implemented
+
+# Maximum site coverage in scripts $BCFTOOLSFILTER_SHPATH and $BCFTOOLSFILTER_02_SHPATH
+# MAXSITECOV=60  # not yet implemented
+
+# Number of processors to use for bcftools filter (can be low)
+FILTER_PROCS=1
+
+# Whether or not to keep all intermediate files at the end of an iteration (1=TRUE;0=FALSE) # better to keep all
+KEEPALL=1
+
+######################################
+#### Dont change stuff below here ####
+######################################
+
+### scripts in $PROGDIR
+
+# submits iteration 1 mapping jobs
+PU1A_SHPATH=${PROGDIR}"/pu1a.sh"
+
+# submits iteration 1 haplotype calling and initial pseudoassembly 
+PU1B_SHPATH=${PROGDIR}"/pu1b.sh"
+
+# submits iteration 2 mapping jobs
+PU2A_SHPATH=${PROGDIR}"/pu2a.sh"
+
+# submits iteration 2 haplotype calling and generation of final pseudoassembly 
+PU2B_SHPATH=${PROGDIR}"/pu2b.sh"
+
+# make a copy of the reference genome and create ncbi sequence index/dictionary
+CPREF_01_SHPATH=${PROGDIR}"/cp_ref_01.sh"
+
+# create ncbi sequence index/dictionary
+BUILD_DB_SHPATH=${PROGDIR}"/BuildDatabase.sh"
+
+# 'bwa mem ' for SE reads mapping to reference genome scaffolds
+BWA_MEM_SE_SHPATH=${PROGDIR}"/bwa_mem_se_01.sh"
+
+# 'bwa mem ' for PE reads mapping to reference genome scaffolds
+BWA_MEM_PE_SHPATH=${PROGDIR}"/bwa_mem_pe_01.sh"
+
+# picard_merge
+MERGESAM_01_SHPATH=${PROGDIR}"/picard_mergesam_01.sh"
+
+# pseudoit_maponly
+MAPONLY_SHPATH=${PROGDIR}"/pseudoit_maponly.sh"
+
+# picard_mark_dup
+MARKDUP_01_SHPATH=${PROGDIR}"/picard_markdup_01.sh"
+
+# 'gatk HaplotypeCaller'
+HAPLOTYPECALLER_SHPATH=${PROGDIR}"/gatk_HaplotypeCaller.sh"
+
+# 'bcftools filter'
+BCFTOOLSFILTER_SHPATH=${PROGDIR}"/bcftools_filter.sh"
+
+# create arguments file for 'gatk_GatherVcfs'
+CREATEARGS_01_SHPATH=${PROGDIR}"/create_GatherVcfs_argfile_01.sh"
+
+# 'gatk_GatherVcfs'
+GATHERVCFS_01_SHPATH=${PROGDIR}"/gatk_GatherVcfs_01.sh"
+
+# index iteration 1 VCF
+TABIX_01_SHPATH=${PROGDIR}"/tabix_01.sh"
+
+# 'gatk SelectVariants'
+SELECTVARIANTS_01_SHPATH=${PROGDIR}"/gatk_SelectVariants_01.sh"
+
+# index iteration 1 SNPs VCF
+TABIX_SNPS_01_SHPATH=${PROGDIR}"/tabix_snps_01.sh"
+
+# check/make first consensus base upper case
+FIRSTBASEUPPER_01_SHPATH=${PROGDIR}"/first_base_upper_01.sh"
+
+# 'bcftools consensus iteration 1'
+BCFTOOLSCONSENSUS_01_SHPATH=${PROGDIR}"/bcftools_consensus_01.sh"
+
+# remove intermediate iteration files
+CLEANUP_01_SHPATH=${PROGDIR}"/cleanup_01.sh"
+
+# makes copy of the reference genome used for interation 2
+CPREF_02_SHPATH=${PROGDIR}"/cp_ref_02.sh"
+
+# create picard dictionary, bwa index, and samtools index files for iteration 2 reference
+INDEX_02_SHPATH=${PROGDIR}"/index_02.sh"
+
+# 'picard CreateSequenceDictionary'
+CREATEDICT_02_SHPATH=${PROGDIR}"/CreateSequenceDictionary_02.sh"
+
+# 'bwa index'
+BWAINDEX_02_SHPATH=${PROGDIR}"/bwa_index_02.sh"
+
+# 'samtools faidx' (creates .fai file)
+FAIDX_02_SHPATH=${PROGDIR}"/samtools_faidx_02.sh"
+
+# 'bwa mem ' for PE reads mapped to iteration 2 reference
+BWA_MEM_PE_02_SHPATH=${PROGDIR}"/bwa_mem_pe_02.sh"
+
+# 'bwa mem ' for SE reads mapped to to iteration 2 reference
+BWA_MEM_SE_02_SHPATH=${PROGDIR}"/bwa_mem_se_02.sh"
+
+# merge SE and PE bamfiles 
+MERGESAM_02_SHPATH=${PROGDIR}"/picard_mergesam_02.sh"
+
+# mark duplicates
+MARKDUP_02_SHPATH=${PROGDIR}"/picard_markdup_02.sh"
+
+# 'gatk HaplotypeCaller'
+HAPLOTYPECALLER_02_SHPATH=${PROGDIR}"/gatk_HaplotypeCaller_02.sh"
+
+# 'gatk GenotypeGVCFs'
+GENOTYPEGVCF_02_SHPATH=${PROGDIR}"/gatk_GenotypeGVCFs_02.sh"
+
+# 'bcftools filter'
+BCFTOOLSFILTER_02_SHPATH=${PROGDIR}"/bcftools_filter_02.sh"
+
+# arguments file for iterations 2 'gatk_GatherVcfs'
+CREATEARGS_02_SHPATH=${PROGDIR}"/create_GatherVcfs_argfile_02.sh"
+
+# 'gatk_GatherVcfs'
+GATHERVCFS_02_SHPATH=${PROGDIR}"/gatk_GatherVcfs_02.sh"
+
+# index iteration 2 VCF
+TABIX_02_SHPATH=${PROGDIR}"/tabix_02.sh"
+
+# Get masked sites, softmask second iteration reference, make consensus (pseudogenome) fasta
+MASKSITES_MASKFASTA_CONSENSUS_02_SHPATH=${PROGDIR}"/masksites_maskfasta_consensus_02.sh"
+
+# convert reference site positions from reference genome coordinates to pseudogenome coordinates
+LIFTOVER_02_SHPATH=${PROGDIR}"/liftover.sh"
+
+# create two final pseudogenomes, one with reference sites softmasked and the other with reference sites hardmasked
+MASK_PSEUDOGENOME_02_SHPATH=${PROGDIR}"/mask_pseudogenome_02.sh"
+
+#### These scripts no longer used:
+# Get masked sites
+MASKSITES_02_SHPATH=${PROGDIR}"/masksites_02.sh"
+
+# softmask second iteration reference
+MASKFASTA_02_SHPATH=${PROGDIR}"/bedtools_maskfasta_02.sh"
+
+# check/make first consensus base upper case
+FIRSTBASEUPPER_02_SHPATH=${PROGDIR}"/first_base_upper_02.sh"
+
+# 'bcftools consensus iteration 2'
+BCFTOOLSCONSENSUS_02_SHPATH=${PROGDIR}"/bcftools_consensus_02.sh"
+
+# remove intermediate iteration files
+CLEANUP_02_SHPATH=${PROGDIR}"/cleanup_02.sh"
+
+######### More output paths (dont change these) ###############
+# Directory for tempfiles
+TMPDIR=${OUTDIR}"/tmp"
+
+# Where a temporary copy of reference genome (and index/dict files) will be saved
+REFDIR_01=$OUTDIR"/ref_01"
+
+# Reference genome to use for iteration 1 mapping (a copy of $REFPATH_OG with all bases uppercase)
+REFNAME_01=$(basename -- "$REFPATH_OG")
+REFPATH_IN=${REFDIR_01}"/"${REFNAME_01}
+REFPATH_01=${REFDIR_01}"/"${REFNAME_01}
+
+# Dictionary file for iteration 1 reference genome
+REFPATH_01_DICT=${REFDIR_01}"/"${REFNAME_01%.*}".dict"
+
+# Reference genome dictionary/index files
+FNA_FAI=$REFPATH_IN".fai"
+
+# LOGOFLOGS
+LOGOFLOGS=${OUTDIR}"/"${NAME}"_LOGOFLOGS.log"
+
+# $READS_SE mapped to $REFPATH_IN
+SE_ITER_01_BAM_PATH=${OUTDIR}"/iter-01/bam/se-iter-01.bam.gz"
+
+# $READS_PE1 and $READS_PE2 mapped to $REFPATH_IN
+PE_ITER_01_BAM_PATH=${OUTDIR}"/iter-01/bam/pe-iter-01.bam.gz"
+
+# $SE_ITER_01_BAM_PATH and $PE_ITER_01_BAM_PATH merged
+MERGED_01_BAM_PATH=${OUTDIR}"/iter-01/bam/merged-iter-01.bam.gz"
+
+# $MERGED_01_BAM_PATH with duplicates marked
+MERGED_RG_MKDUP_01_BAM_PATH=${OUTDIR}"/iter-01/bam/merged-rg-mkdup-iter-01.bam.gz"
+
+# Tabulation of duplicate reads marked in $MERGED_RG_MKDUP_01_BAM_PATH
+DUPMETS_01_PATH=${OUTDIR}"/iter-01/bam/iter-01-dupmets.txt"
+
+# Where logfiles are saved for per-scaffold jobs (iteration 1)
+VCFLOGSDIR_01=${OUTDIR}"/iter-01/vcf/vcf-logs/"
+
+# Where a temporary copy of reference genome (and index/dict files) will be saved
+REFDIR_02=$OUTDIR"/ref_02"
+
+# Reference scaffolds used for iteration 2 inferred from first iteration results
+REFPATH_02_OG=${OUTDIR}"/iter-01/fa/iter-01-snps-intermediate.fa"
+REFPATH_02=${REFDIR_02}"/"$(basename "$REFPATH_02_OG")
+
+# Dictionary file for iteration 2 reference
+REFPATH_02_DICT=${REFDIR_02}"/iter-01-snps-intermediate.dict"
+
+## FASTA dictionary for iteration 2 reference scaffolds
+FNA_FAI_02=$REFPATH_02".fai"
+
+# $READS_SE mapped to $REFPATH_01
+SE_ITER_02_BAM_PATH=${OUTDIR}"/iter-02/bam/se-iter-02.bam.gz"
+
+# $READS_PE1 and $READS_PE2 mapped to $REFPATH_01
+PE_ITER_02_BAM_PATH=${OUTDIR}"/iter-02/bam/pe-iter-02.bam.gz"
+
+## # $SE_ITER_01_BAM_PATH and $PE_ITER_01_BAM_PATH merged
+MERGED_02_BAM_PATH=${OUTDIR}"/iter-02/bam/merged-iter-02.bam.gz"
+
+## # $MERGED_02_BAM_PATH with duplicates marked
+MERGED_RG_MKDUP_02_BAM_PATH=${OUTDIR}"/iter-02/bam/merged-rg-mkdup-iter-02.bam.gz"
+
+## # Tabulation of duplicate reads marked in $MERGED_RG_MKDUP_01_BAM_PATH
+DUPMETS_02_PATH=${OUTDIR}"/iter-02/bam/iter-02-dupmets.txt"
+
+# Where logfiles are saved for per-scaffold jobs (iteration 2)
+VCFLOGSDIR_02=${OUTDIR}"/iter-02/vcf/gvcf-logs/"
+
+# Arguments file for 'gatk GatherVcfs --arguments_file $ARGSFILE_01'.
+ARGSFILE_01=${OUTDIR}"/iter-01/vcf/iter-01-gathervcfs-params.txt"
+
+# merged VCFs
+FILTER_INTERMEDIATE_VCF_01=${OUTDIR}"/iter-01/vcf/iter-01-filter-intermediate.vcf.gz"
+
+# merged VCFs SNPs
+FILTER_INTERMEDIATE_SNPS_VCF_01=${OUTDIR}"/iter-01/vcf/iter-01-filter-intermediate-snps.vcf.gz"
+
+# Arguments file for 'gatk GatherVcfs --arguments_file $ARGSFILE_02'
+ARGSFILE_02=${OUTDIR}"/iter-02/vcf/iter-02-gathervcfs-params.txt"
+
+# iteration 2 merged VCF
+FILTER_VCF_02=${OUTDIR}"/iter-02/vcf/iter-02-filter.vcf.gz"
+
+# BED file with sites to mask in reference
+MASKSITES_02_BED=${OUTDIR}"/iter-02/fa/iter-02-masksites.bed"
+
+# Reference fasta with sites soft masked
+REF_02_SOFTMASKED=${OUTDIR}"/iter-02/fa/iter-01-masked.fa"
+
+# Final soft-masked pseudoassembly
+SOFTMASKED_02_FINAL_FASTA=${OUTDIR}"/iter-02/fa/iter-02-softmask-final.fa"
+
+# Chain file associated with final soft-masked pseudoassembly
+SOFTMASKED_02_FINAL_FASTA_CHAIN=${OUTDIR}"/iter-02/fa/iter-02-softmask-final.chain"
+
+# Positions of pseudogenome that are from reference genome
+BED_LIFTED_OUT=${OUTDIR}"/iter-02/fa/pseudogenome_masksites_lifted.bed"
+
+# Reference genome positions absent from pseudogenome
+BED_UNLIFTED_OUT=${OUTDIR}"/iter-02/fa/pseudogenome_masksites_unlifted.bed"
+
+# Reference fasta with sites hard masked
+REF_02_HARDMASKED=${OUTDIR}"/iter-02/fa/iter-01-hardmasked.fa"
+
+# Final hard-masked pseudoassembly
+HARDMASKED_02_FINAL_FASTA=${OUTDIR}"/iter-02/fa/iter-02-hardmask-final.fa"
+
+# Chain file associated with final hardmasked pseudoassembly
+HARDMASKED_02_FINAL_FASTA_CHAIN=${OUTDIR}"/iter-02/fa/iter-02-hardmask-final.chain"
+
+# Final pseudogenome with reference sites softmasked
+FA_SOFTMASK_OUT=${OUTDIR}"/iter-02/fa/"${NAME}"_pseudogenome_refsites-softmasked.fa"
+
+# Final pseudogenome with reference sites hardmasked
+FA_HARDMASK_OUT=${OUTDIR}"/iter-02/fa/"${NAME}"_pseudogenome_refsites-hardmasked.fa"
+```
 
 pu1a.sh
 
